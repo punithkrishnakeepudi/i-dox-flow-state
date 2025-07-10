@@ -98,6 +98,11 @@ export function DocumentEditor({ document, onDocumentUpdate }: DocumentEditorPro
           metadata: { type: newTitle ? 'title_and_content' : 'content' }
         });
 
+      toast({
+        title: "Saved",
+        description: "Your changes have been saved successfully.",
+      });
+
     } catch (error) {
       console.error('Error:', error);
       toast({
@@ -117,7 +122,7 @@ export function DocumentEditor({ document, onDocumentUpdate }: DocumentEditorPro
     
     saveTimeoutRef.current = setTimeout(() => {
       saveToDatabase(newContent);
-    }, 1000); // Save after 1 second of inactivity
+    }, 2000); // Save after 2 seconds of inactivity
   };
 
   const saveContent = () => {
@@ -125,6 +130,9 @@ export function DocumentEditor({ document, onDocumentUpdate }: DocumentEditorPro
       const newContent = editorRef.current.innerHTML;
       setContent(newContent);
       debouncedSave(newContent);
+      
+      // Update localStorage for stats
+      localStorage.setItem("idox-document-content", newContent);
     }
   };
 

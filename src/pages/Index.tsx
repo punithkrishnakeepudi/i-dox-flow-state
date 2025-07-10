@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { FileText, Plus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
 
 interface Document {
   id: string;
@@ -20,6 +21,7 @@ interface Document {
 const Index = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [currentDocument, setCurrentDocument] = useState<Document | null>(null);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(true);
@@ -75,7 +77,10 @@ const Index = () => {
         .from('documents')
         .insert({
           title: 'Untitled Document',
-          content: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "" }] }] },
+          content: { 
+            html: '<p>Start writing your document here...</p>',
+            lastModified: new Date().toISOString()
+          },
           owner_id: user.id
         })
         .select()
@@ -83,13 +88,28 @@ const Index = () => {
 
       if (error) {
         console.error('Error creating document:', error);
+        toast({
+          title: "Error",
+          description: "Failed to create new document. Please try again.",
+          variant: "destructive"
+        });
         return;
       }
 
       setDocuments(prev => [data, ...prev]);
       setCurrentDocument(data);
+      
+      toast({
+        title: "Document created",
+        description: "New document created successfully.",
+      });
     } catch (error) {
       console.error('Error:', error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred.",
+        variant: "destructive"
+      });
     }
   };
 

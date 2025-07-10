@@ -33,8 +33,21 @@ export function StatsPanel({ documents }: StatsPanelProps) {
 
   useEffect(() => {
     const updateStats = () => {
-      const content = localStorage.getItem("idox-document-content") || "";
-      const textContent = content.replace(/<[^>]*>/g, ""); // Strip HTML tags
+      let textContent = "";
+      
+      // Try to get content from current document or localStorage
+      if (documents.length > 0) {
+        const currentDoc = documents[0]; // Assuming first document is current
+        if (currentDoc?.content?.html) {
+          textContent = currentDoc.content.html.replace(/<[^>]*>/g, ""); // Strip HTML tags
+        }
+      }
+      
+      // Fallback to localStorage
+      if (!textContent) {
+        const content = localStorage.getItem("idox-document-content") || "";
+        textContent = content.replace(/<[^>]*>/g, ""); // Strip HTML tags
+      }
       
       const wordCount = getWordCount(textContent);
       const charCount = getCharacterCount(textContent);
@@ -56,7 +69,7 @@ export function StatsPanel({ documents }: StatsPanelProps) {
     const interval = setInterval(updateStats, 2000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [documents]);
 
   const statItems = [
     {

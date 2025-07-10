@@ -87,12 +87,33 @@ export function Header({ user, currentDocument, onCreateDocument }: HeaderProps)
               size="sm" 
               className="hover-lift"
               onClick={onCreateDocument}
+              disabled={!user}
             >
               <Plus className="w-4 h-4" />
               <span className="hidden sm:inline ml-2">New</span>
             </Button>
 
-            <Button variant="ghost" size="sm" className="hover-lift">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="hover-lift"
+              onClick={() => {
+                if (currentDocument?.share_code) {
+                  navigator.clipboard.writeText(`${window.location.origin}/share/${currentDocument.share_code}`);
+                  toast({
+                    title: "Link copied",
+                    description: "Share link copied to clipboard.",
+                  });
+                } else {
+                  toast({
+                    title: "No document",
+                    description: "Please select a document to share.",
+                    variant: "destructive"
+                  });
+                }
+              }}
+              disabled={!currentDocument}
+            >
               <Share2 className="w-4 h-4" />
               <span className="hidden sm:inline ml-2">Share</span>
             </Button>
@@ -101,8 +122,36 @@ export function Header({ user, currentDocument, onCreateDocument }: HeaderProps)
               {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </Button>
 
-            <Button variant="ghost" size="sm" className="hover-lift">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="hover-lift"
+              onClick={() => {
+                if (currentDocument) {
+                  const content = currentDocument.content?.html || '';
+                  const blob = new Blob([content], { type: 'text/html' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `${currentDocument.title}.html`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                  toast({
+                    title: "Downloaded",
+                    description: "Document downloaded successfully.",
+                  });
+                } else {
+                  toast({
+                    title: "No document",
+                    description: "Please select a document to download.",
+                    variant: "destructive"
+                  });
+                }
+              }}
+              disabled={!currentDocument}
+            >
               <Download className="w-4 h-4" />
+              <span className="hidden sm:inline ml-2">Download</span>
             </Button>
 
             <Button 

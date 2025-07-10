@@ -12,43 +12,124 @@ import {
   ListOrdered,
   Link,
   Image,
-  Type
+  Type,
+  Save
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
-interface DocumentEditorProps {
-  userId: string;
-  documentTitle: string;
-  onTitleChange: (title: string) => void;
+interface Document {
+  id: string;
+  title: string;
+  content: any;
+  created_at: string;
+  updated_at: string;
 }
 
-export function DocumentEditor({ userId, documentTitle, onTitleChange }: DocumentEditorProps) {
+interface DocumentEditorProps {
+  document: Document;
+  onDocumentUpdate: (document: Document) => void;
+}
+
+export function DocumentEditor({ document, onDocumentUpdate }: DocumentEditorProps) {
   const [content, setContent] = useState("");
   const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
+  const saveTimeoutRef = useRef<NodeJS.Timeout>();
+  const { user } = useAuth();
+  const { toast } = useToast();
 
   useEffect(() => {
-    // Load document content from localStorage
-    const savedContent = localStorage.getItem("idox-document-content");
-    if (savedContent) {
-      setContent(savedContent);
-      if (editorRef.current) {
-        editorRef.current.innerHTML = savedContent;
-      }
+    if (document && editorRef.current) {
+      // Load document content
+      const htmlContent = document.content?.html || "";
+      setContent(htmlContent);
+      editorRef.current.innerHTML = htmlContent;
     }
-  }, []);
+  }, [document]);
+
+  const saveToDatabase = async (newContent: string, newTitle?: string) => {
+    if (!document || !user) return;
+
+    setSaving(true);
+    try {
+      const updateData: any = {
+        content: {
+          html: newContent,
+          lastModified: new Date().toISOString()
+        }
+      };
+      
+      if (newTitle !== undefined) {
+        updateData.title = newTitle;
+      }
+
+      const { data, error } = await supabase
+        .from('documents')
+        .update(updateData)
+        .eq('id', document.id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error saving document:', error);
+        toast({
+          title: "Save failed",
+          description: "Could not save your changes. Please try again.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Update the document in parent component
+      onDocumentUpdate(data);
+      
+      // Log activity
+      await supabase
+        .from('document_activity')
+        .insert({
+          document_id: document.id,
+          user_id: user.id,
+          action: 'updated',
+          metadata: { type: newTitle ? 'title_and_content' : 'content' }
+        });
+
+    } catch (error) {
+      console.error('Error:', error);
+      toast({
+        title: "Save failed",
+        description: "An unexpected error occurred.",
+        variant: "destructive"
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const debouncedSave = (newContent: string) => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    
+    saveTimeoutRef.current = setTimeout(() => {
+      saveToDatabase(newContent);
+    }, 1000); // Save after 1 second of inactivity
+  };
 
   const saveContent = () => {
     if (editorRef.current) {
       const newContent = editorRef.current.innerHTML;
       setContent(newContent);
-      localStorage.setItem("idox-document-content", newContent);
+      debouncedSave(newContent);
     }
   };
 
   const handleFormat = (command: string, value?: string) => {
-    document.execCommand(command, false, value);
+    (document as any).execCommand(command, false, value);
     editorRef.current?.focus();
     saveContent();
   };
@@ -58,9 +139,10 @@ export function DocumentEditor({ userId, documentTitle, onTitleChange }: Documen
     setTimeout(() => titleRef.current?.focus(), 0);
   };
 
-  const handleTitleSave = () => {
-    if (titleRef.current) {
-      onTitleChange(titleRef.current.value || "Untitled Document");
+  const handleTitleSave = async () => {
+    if (titleRef.current && document) {
+      const newTitle = titleRef.current.value || "Untitled Document";
+      await saveToDatabase(content, newTitle);
     }
     setIsEditing(false);
   };
@@ -79,7 +161,7 @@ export function DocumentEditor({ userId, documentTitle, onTitleChange }: Documen
           <input
             ref={titleRef}
             type="text"
-            defaultValue={documentTitle}
+            defaultValue={document?.title || ""}
             onBlur={handleTitleSave}
             onKeyDown={handleKeyDown}
             className="text-2xl font-bold bg-transparent border-none outline-none w-full text-foreground"
@@ -90,7 +172,7 @@ export function DocumentEditor({ userId, documentTitle, onTitleChange }: Documen
             onClick={handleTitleEdit}
             className="text-2xl font-bold cursor-pointer text-foreground hover:text-primary transition-colors"
           >
-            {documentTitle}
+            {document?.title || "Untitled Document"}
           </h2>
         )}
       </div>
@@ -256,7 +338,7 @@ export function DocumentEditor({ userId, documentTitle, onTitleChange }: Documen
           </div>
           <div className="flex items-center gap-2 text-muted-foreground">
             <Type className="w-4 h-4" />
-            <span>You're editing as {userId}</span>
+            <span>You're editing as {user?.email?.split('@')[0] || 'User'}</span>
           </div>
         </div>
       </div>

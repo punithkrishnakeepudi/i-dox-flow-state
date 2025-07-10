@@ -1,14 +1,28 @@
 import { Button } from "@/components/ui/button";
-import { Share2, Settings, Moon, Sun, Download } from "lucide-react";
+import { Share2, Settings, Moon, Sun, Download, Plus, LogOut, User } from "lucide-react";
 import { useState, useEffect } from "react";
+import { User as SupabaseUser } from "@supabase/supabase-js";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 
-interface HeaderProps {
-  userId: string;
-  documentTitle: string;
+interface Document {
+  id: string;
+  title: string;
+  content: any;
+  created_at: string;
+  updated_at: string;
 }
 
-export function Header({ userId, documentTitle }: HeaderProps) {
+interface HeaderProps {
+  user: SupabaseUser;
+  currentDocument: Document | null;
+  onCreateDocument: () => Promise<void>;
+}
+
+export function Header({ user, currentDocument, onCreateDocument }: HeaderProps) {
   const [isDark, setIsDark] = useState(false);
+  const { signOut } = useAuth();
+  const { toast } = useToast();
 
   useEffect(() => {
     const theme = localStorage.getItem("theme");
@@ -21,6 +35,22 @@ export function Header({ userId, documentTitle }: HeaderProps) {
     setIsDark(!isDark);
     localStorage.setItem("theme", newTheme);
     document.documentElement.classList.toggle("dark", newTheme === "dark");
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      toast({
+        title: "Signed out",
+        description: "You have been successfully signed out."
+      });
+    } catch (error) {
+      toast({
+        title: "Error signing out",
+        description: "Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -39,18 +69,28 @@ export function Header({ userId, documentTitle }: HeaderProps) {
             <div className="hidden sm:block h-4 w-px bg-border"></div>
             
             <h1 className="text-lg font-medium text-foreground truncate max-w-xs">
-              {documentTitle}
+              {currentDocument?.title || "No document selected"}
             </h1>
           </div>
 
-          {/* Right: User ID & Actions */}
+          {/* Right: User & Actions */}
           <div className="flex items-center gap-2">
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-muted/50 rounded-full">
-              <div className="w-2 h-2 bg-success rounded-full animate-pulse"></div>
-              <span className="text-sm font-mono text-muted-foreground">
-                ID: {userId}
+              <User className="w-3 h-3 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">
+                {user.email?.split('@')[0]}
               </span>
             </div>
+
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="hover-lift"
+              onClick={onCreateDocument}
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline ml-2">New</span>
+            </Button>
 
             <Button variant="ghost" size="sm" className="hover-lift">
               <Share2 className="w-4 h-4" />
@@ -65,8 +105,14 @@ export function Header({ userId, documentTitle }: HeaderProps) {
               <Download className="w-4 h-4" />
             </Button>
 
-            <Button variant="ghost" size="sm" className="hover-lift">
-              <Settings className="w-4 h-4" />
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="hover-lift"
+              onClick={handleSignOut}
+            >
+              <LogOut className="w-4 h-4" />
+              <span className="hidden sm:inline ml-2">Sign Out</span>
             </Button>
           </div>
         </div>

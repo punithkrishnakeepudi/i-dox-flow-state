@@ -11,7 +11,19 @@ import {
 } from "lucide-react";
 import { calculateReadingTime, getWordCount, getCharacterCount } from "@/lib/utils";
 
-export function StatsPanel() {
+interface Document {
+  id: string;
+  title: string;
+  content: any;
+  created_at: string;
+  updated_at: string;
+}
+
+interface StatsPanelProps {
+  documents: Document[];
+}
+
+export function StatsPanel({ documents }: StatsPanelProps) {
   const [stats, setStats] = useState({
     wordCount: 0,
     charCount: 0,

@@ -63,7 +63,7 @@ const Auth = () => {
       } else {
         toast({
           title: "Check your email",
-          description: "Please check your email for a verification link to complete your registration."
+          description: "We've sent you a verification link. Please check your email (including spam folder) and click the link to activate your account before signing in."
         });
       }
     } catch (error: any) {
@@ -91,7 +91,19 @@ const Auth = () => {
         if (error.message.includes("Invalid login credentials")) {
           toast({
             title: "Sign in failed",
-            description: "Invalid email or password. Please check your credentials and try again.",
+            description: "Invalid email or password. Please check your credentials and try again. If you recently signed up, make sure you've verified your email address.",
+            variant: "destructive"
+          });
+        } else if (error.message.includes("Email not confirmed")) {
+          toast({
+            title: "Email not verified",
+            description: "Please check your email and click the verification link before signing in.",
+            variant: "destructive"
+          });
+        } else if (error.message.includes("Too many requests")) {
+          toast({
+            title: "Too many attempts",
+            description: "Please wait a few minutes before trying again.",
             variant: "destructive"
           });
         } else {
@@ -141,6 +153,10 @@ const Auth = () => {
             
             <TabsContent value="signin">
               <form onSubmit={handleSignIn} className="space-y-4">
+                <div className="text-sm text-muted-foreground mb-4">
+                  <p>Don't have an account? Switch to the Sign Up tab.</p>
+                  <p className="mt-1">If you recently signed up, make sure to verify your email first.</p>
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
@@ -176,6 +192,10 @@ const Auth = () => {
             
             <TabsContent value="signup">
               <form onSubmit={handleSignUp} className="space-y-4">
+                <div className="text-sm text-muted-foreground mb-4">
+                  <p>Already have an account? Switch to the Sign In tab.</p>
+                  <p className="mt-1">After signing up, you'll need to verify your email before you can sign in.</p>
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="username">Username</Label>
                   <Input

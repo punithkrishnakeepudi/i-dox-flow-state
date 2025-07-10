@@ -41,6 +41,7 @@ const Index = () => {
   const loadDocuments = async () => {
     if (!user) return;
     
+    console.log('Loading documents for user:', user.id);
     setLoadingDocs(true);
     try {
       const { data, error } = await supabase
@@ -50,20 +51,33 @@ const Index = () => {
         .order('updated_at', { ascending: false });
 
       if (error) {
-        console.error('Error loading documents:', error);
+        console.error('Error loading documents:', error.message, error.details);
+        toast({
+          title: "Error loading documents",
+          description: `Failed to load documents: ${error.message}`,
+          variant: "destructive"
+        });
         return;
       }
 
+      console.log('Documents loaded:', data?.length || 0);
       setDocuments(data || []);
       
       // If no documents, create a default one
       if (!data || data.length === 0) {
+        console.log('No documents found, creating default document');
         await createNewDocument();
       } else {
+        console.log('Setting current document to:', data[0].title);
         setCurrentDocument(data[0]);
       }
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Unexpected error loading documents:', error);
+      toast({
+        title: "Error",
+        description: `An unexpected error occurred: ${error.message}`,
+        variant: "destructive"
+      });
     } finally {
       setLoadingDocs(false);
     }
@@ -72,6 +86,8 @@ const Index = () => {
   const createNewDocument = async () => {
     if (!user) return;
 
+    console.log('Creating new document for user:', user.id);
+    
     try {
       const { data, error } = await supabase
         .from('documents')
@@ -87,15 +103,16 @@ const Index = () => {
         .single();
 
       if (error) {
-        console.error('Error creating document:', error);
+        console.error('Error creating document:', error.message, error.details);
         toast({
           title: "Error",
-          description: "Failed to create new document. Please try again.",
+          description: `Failed to create new document: ${error.message}`,
           variant: "destructive"
         });
         return;
       }
 
+      console.log('Document created successfully:', data);
       setDocuments(prev => [data, ...prev]);
       setCurrentDocument(data);
       
@@ -104,10 +121,10 @@ const Index = () => {
         description: "New document created successfully.",
       });
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Unexpected error creating document:', error);
       toast({
         title: "Error",
-        description: "An unexpected error occurred.",
+        description: `An unexpected error occurred: ${error.message}`,
         variant: "destructive"
       });
     }

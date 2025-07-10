@@ -86,7 +86,19 @@ export function Header({ user, currentDocument, onCreateDocument }: HeaderProps)
               variant="ghost" 
               size="sm" 
               className="hover-lift"
-              onClick={onCreateDocument}
+              onClick={async () => {
+                console.log('Create document button clicked');
+                try {
+                  await onCreateDocument();
+                } catch (error) {
+                  console.error('Error in create document handler:', error);
+                  toast({
+                    title: "Error",
+                    description: "Failed to create document. Please try again.",
+                    variant: "destructive"
+                  });
+                }
+              }}
               disabled={!user}
             >
               <Plus className="w-4 h-4" />

@@ -329,11 +329,6 @@ export function DocumentEditor({ document, onDocumentUpdate }: DocumentEditorPro
           data-placeholder="Start writing your document..."
           suppressContentEditableWarning={true}
         >
-          {!content && (
-            <p className="text-muted-foreground">
-              Start writing your document here... Use the toolbar above for formatting options.
-            </p>
-          )}
         </div>
       </div>
 

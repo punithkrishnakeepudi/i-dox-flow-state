@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Placeholder styling for contentEditable */
+[contenteditable][data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  color: hsl(var(--muted-foreground));
+  pointer-events: none;
+  position: absolute;
+}
+
 /* i-dox Design System - Vibrant Gen Z-inspired collaborative editor */
 
 @layer base {

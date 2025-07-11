@@ -24,6 +24,80 @@ export interface ShareResponse {
   shareCode: string;
 }
 
+// Ultra-safe download utility that avoids all DOM manipulation
+const safeDownload = {
+  downloadHTML: async (content: string, filename: string): Promise<void> => {
+    try {
+      const blob = new Blob([content], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      
+      // Use the most compatible download approach
+      if ('showSaveFilePicker' in window) {
+        // Modern File System Access API (when available)
+        try {
+          const fileHandle = await (window as any).showSaveFilePicker({
+            suggestedName: filename,
+            types: [{
+              description: 'HTML files',
+              accept: { 'text/html': ['.html'] }
+            }]
+          });
+          const writable = await fileHandle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+          URL.revokeObjectURL(url);
+          return;
+        } catch (err) {
+          // Fall through to legacy method if user cancels or API fails
+        }
+      }
+      
+      // Fallback: Use URL-based download without DOM manipulation
+      const a = Object.assign(document.createElement('a'), {
+        href: url,
+        download: filename,
+        style: 'display: none'
+      });
+      
+      // Use a Promise to ensure proper cleanup timing
+      await new Promise<void>((resolve) => {
+        const cleanup = () => {
+          URL.revokeObjectURL(url);
+          resolve();
+        };
+        
+        // Set up one-time event listener
+        a.addEventListener('click', cleanup, { once: true });
+        
+        // Create a temporary container that React won't touch
+        const container = document.createElement('div');
+        container.style.cssText = 'position:fixed;top:-1000px;left:-1000px;visibility:hidden;';
+        document.body.appendChild(container);
+        container.appendChild(a);
+        
+        // Trigger download
+        a.click();
+        
+        // Clean up container after a short delay
+        setTimeout(() => {
+          try {
+            if (container.parentNode) {
+              document.body.removeChild(container);
+            }
+          } catch (e) {
+            console.warn('Cleanup warning:', e);
+          }
+          cleanup();
+        }, 100);
+      });
+      
+    } catch (error) {
+      console.error('Download failed:', error);
+      throw new Error('Failed to download file');
+    }
+  }
+};
+
 export class DocumentService {
   static async createDocument(title: string = "Untitled Document", content: string = ""): Promise<Document> {
     const { data: { user } } = await supabase.auth.getUser();
@@ -135,13 +209,13 @@ export class DocumentService {
     };
   }
 
-  static async exportToPDF(document: Document): Promise<void> {
+  static async exportToPDF(doc: Document): Promise<void> {
     // Create a simple HTML document for PDF export
     const htmlContent = `
       <!DOCTYPE html>
       <html>
         <head>
-          <title>${document.title}</title>
+          <title>${doc.title}</title>
           <style>
             body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
             h1 { color: #333; border-bottom: 2px solid #333; padding-bottom: 10px; }
@@ -149,22 +223,14 @@ export class DocumentService {
           </style>
         </head>
         <body>
-          <h1>${document.title}</h1>
-          <div class="content">${document.content?.html || ''}</div>
+          <h1>${doc.title}</h1>
+          <div class="content">${doc.content?.html || ''}</div>
         </body>
       </html>
     `;
 
-    // Create a blob and download
-    const blob = new Blob([htmlContent], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${document.title}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    // Use safe download utility to avoid DOM conflicts
+    await safeDownload.downloadHTML(htmlContent, `${doc.title}.html`);
   }
 
   static async addCollaborator(documentId: string, userEmail: string, permission: 'view' | 'edit' | 'admin' = 'view'): Promise<void> {

@@ -34,13 +34,17 @@ export function useDocumentPresence(documentId: string) {
         const users: PresenceUser[] = [];
         
         Object.keys(presenceState).forEach((key) => {
-          const presence = presenceState[key][0];
-          if (presence) {
+          const presences = presenceState[key];
+          if (presences && presences.length > 0) {
+            // Handle Supabase presence structure safely
+            const presence = presences[0];
+            const presenceData = presence as any;
+            
             users.push({
-              id: presence.user_id,
-              email: presence.email,
-              username: presence.username,
-              lastSeen: presence.last_seen,
+              id: presenceData?.user_id || presenceData?.id || key,
+              email: presenceData?.email || 'Unknown',
+              username: presenceData?.username || presenceData?.email?.split('@')[0] || 'Anonymous',
+              lastSeen: presenceData?.last_seen || new Date().toISOString(),
               status: 'online'
             });
           }

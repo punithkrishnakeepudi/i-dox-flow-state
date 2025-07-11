@@ -5,9 +5,9 @@ export interface Document {
   id: string;
   title: string;
   content: any;
-  owner_id: string;
+  owner_id?: string;  // Make optional for compatibility
   share_code?: string;
-  is_public: boolean;
+  is_public?: boolean;  // Make optional for compatibility
   created_at: string;
   updated_at: string;
 }
@@ -210,12 +210,19 @@ export class DocumentService {
   }
 
   static async exportToPDF(doc: Document): Promise<void> {
+    // Ensure we have required fields with defaults
+    const safeDoc = {
+      ...doc,
+      owner_id: doc.owner_id || '',
+      is_public: doc.is_public || false
+    };
+    
     // Create a simple HTML document for PDF export
     const htmlContent = `
       <!DOCTYPE html>
       <html>
         <head>
-          <title>${doc.title}</title>
+          <title>${safeDoc.title}</title>
           <style>
             body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
             h1 { color: #333; border-bottom: 2px solid #333; padding-bottom: 10px; }
@@ -223,14 +230,14 @@ export class DocumentService {
           </style>
         </head>
         <body>
-          <h1>${doc.title}</h1>
-          <div class="content">${doc.content?.html || ''}</div>
+          <h1>${safeDoc.title}</h1>
+          <div class="content">${safeDoc.content?.html || ''}</div>
         </body>
       </html>
     `;
 
     // Use safe download utility to avoid DOM conflicts
-    await safeDownload.downloadHTML(htmlContent, `${doc.title}.html`);
+    await safeDownload.downloadHTML(htmlContent, `${safeDoc.title}.html`);
   }
 
   static async addCollaborator(documentId: string, userEmail: string, permission: 'view' | 'edit' | 'admin' = 'view'): Promise<void> {

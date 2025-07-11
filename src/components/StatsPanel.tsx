@@ -1,15 +1,22 @@
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { 
   FileText, 
   Clock, 
   Type, 
   Hash,
   Users,
-  Eye
+  Eye,
+  Download,
+  Share2,
+  Lock,
+  UserPlus
 } from "lucide-react";
-import { calculateReadingTime, getWordCount, getCharacterCount } from "@/lib/utils";
+import { DocumentService } from "@/lib/documentService";
+import { useDocumentPresence } from "@/hooks/useDocumentPresence";
+import { useToast } from "@/hooks/use-toast";
 
 interface Document {
   id: string;
@@ -21,25 +28,31 @@ interface Document {
 
 interface StatsPanelProps {
   documents: Document[];
+  currentDocument?: Document | null;
 }
 
-export function StatsPanel({ documents }: StatsPanelProps) {
+export function StatsPanel({ documents, currentDocument }: StatsPanelProps) {
   const [stats, setStats] = useState({
     wordCount: 0,
     charCount: 0,
     readingTime: 0,
     paragraphs: 0
   });
+  
+  const { activeUsers, viewers } = useDocumentPresence(currentDocument?.id || '');
+  const { toast } = useToast();
 
   useEffect(() => {
     const updateStats = () => {
       let textContent = "";
       
       // Try to get content from current document or localStorage
-      if (documents.length > 0) {
-        const currentDoc = documents[0]; // Assuming first document is current
-        if (currentDoc?.content?.html) {
-          textContent = currentDoc.content.html.replace(/<[^>]*>/g, ""); // Strip HTML tags
+      if (currentDocument?.content?.html) {
+        textContent = currentDocument.content.html.replace(/<[^>]*>/g, ""); // Strip HTML tags
+      } else if (documents.length > 0) {
+        const firstDoc = documents[0];
+        if (firstDoc?.content?.html) {
+          textContent = firstDoc.content.html.replace(/<[^>]*>/g, ""); // Strip HTML tags
         }
       }
       
@@ -49,15 +62,13 @@ export function StatsPanel({ documents }: StatsPanelProps) {
         textContent = content.replace(/<[^>]*>/g, ""); // Strip HTML tags
       }
       
-      const wordCount = getWordCount(textContent);
-      const charCount = getCharacterCount(textContent);
-      const readingTime = calculateReadingTime(textContent);
+      const metrics = DocumentService.calculateMetrics(textContent);
       const paragraphs = textContent.split(/\n\s*\n/).filter(p => p.trim().length > 0).length;
 
       setStats({
-        wordCount,
-        charCount,
-        readingTime,
+        wordCount: metrics.wordCount,
+        charCount: metrics.characterCount,
+        readingTime: metrics.readingTime,
         paragraphs
       });
     };
@@ -69,7 +80,7 @@ export function StatsPanel({ documents }: StatsPanelProps) {
     const interval = setInterval(updateStats, 2000);
 
     return () => clearInterval(interval);
-  }, [documents]);
+  }, [documents, currentDocument]);
 
   const statItems = [
     {
@@ -97,6 +108,57 @@ export function StatsPanel({ documents }: StatsPanelProps) {
       color: "bg-warning"
     }
   ];
+
+  const handleExportPDF = async () => {
+    if (!currentDocument) {
+      toast({
+        title: "No document selected",
+        description: "Please select a document to export.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      await DocumentService.exportToPDF(currentDocument);
+      toast({
+        title: "Exported successfully",
+        description: "Document exported as PDF.",
+      });
+    } catch (error) {
+      toast({
+        title: "Export failed",
+        description: "Could not export document.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleCopyShareLink = async () => {
+    if (!currentDocument) {
+      toast({
+        title: "No document selected",
+        description: "Please select a document to share.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const { shareLink } = await DocumentService.generateShareLink(currentDocument.id);
+      await navigator.clipboard.writeText(shareLink);
+      toast({
+        title: "Link copied",
+        description: "Share link copied to clipboard.",
+      });
+    } catch (error) {
+      toast({
+        title: "Failed to copy link",
+        description: "Could not generate or copy share link.",
+        variant: "destructive"
+      });
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -131,7 +193,7 @@ export function StatsPanel({ documents }: StatsPanelProps) {
               </div>
               <span className="text-sm font-medium text-muted-foreground">Active Users</span>
             </div>
-            <Badge variant="secondary" className="font-mono">1</Badge>
+            <Badge variant="secondary" className="font-mono">{activeUsers.length}</Badge>
           </div>
 
           <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30">
@@ -141,7 +203,7 @@ export function StatsPanel({ documents }: StatsPanelProps) {
               </div>
               <span className="text-sm font-medium text-muted-foreground">Viewers</span>
             </div>
-            <Badge variant="secondary" className="font-mono">0</Badge>
+            <Badge variant="secondary" className="font-mono">{viewers}</Badge>
           </div>
         </div>
       </Card>
@@ -150,18 +212,40 @@ export function StatsPanel({ documents }: StatsPanelProps) {
       <Card className="p-4 bg-gradient-card border-border/50 hover-lift">
         <h3 className="text-lg font-semibold mb-4 gradient-text">Quick Actions</h3>
         <div className="space-y-2">
-          <button className="w-full p-3 text-sm font-medium text-left rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors">
-            📤 Export as PDF
-          </button>
-          <button className="w-full p-3 text-sm font-medium text-left rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors">
-            📋 Copy Share Link
-          </button>
-          <button className="w-full p-3 text-sm font-medium text-left rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors">
-            🔒 Set Password
-          </button>
-          <button className="w-full p-3 text-sm font-medium text-left rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors">
-            👥 Invite Collaborators
-          </button>
+          <Button
+            variant="ghost"
+            className="w-full justify-start p-3 h-auto rounded-xl bg-muted/30 hover:bg-muted/50"
+            onClick={handleExportPDF}
+            disabled={!currentDocument}
+          >
+            <Download className="w-4 h-4 mr-3" />
+            Export as PDF
+          </Button>
+          <Button
+            variant="ghost"
+            className="w-full justify-start p-3 h-auto rounded-xl bg-muted/30 hover:bg-muted/50"
+            onClick={handleCopyShareLink}
+            disabled={!currentDocument}
+          >
+            <Share2 className="w-4 h-4 mr-3" />
+            Copy Share Link
+          </Button>
+          <Button
+            variant="ghost"
+            className="w-full justify-start p-3 h-auto rounded-xl bg-muted/30 hover:bg-muted/50"
+            disabled={!currentDocument}
+          >
+            <Lock className="w-4 h-4 mr-3" />
+            Set Password
+          </Button>
+          <Button
+            variant="ghost"
+            className="w-full justify-start p-3 h-auto rounded-xl bg-muted/30 hover:bg-muted/50"
+            disabled={!currentDocument}
+          >
+            <UserPlus className="w-4 h-4 mr-3" />
+            Invite Collaborators
+          </Button>
         </div>
       </Card>
     </div>

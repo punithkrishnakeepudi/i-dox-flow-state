@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { User as SupabaseUser } from "@supabase/supabase-js";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { ShareDialog } from "@/components/ShareDialog";
+import { DocumentService } from "@/lib/documentService";
 
 interface Document {
   id: string;
@@ -21,6 +23,7 @@ interface HeaderProps {
 
 export function Header({ user, currentDocument, onCreateDocument }: HeaderProps) {
   const [isDark, setIsDark] = useState(false);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const { signOut } = useAuth();
   const { toast } = useToast();
 
@@ -53,7 +56,33 @@ export function Header({ user, currentDocument, onCreateDocument }: HeaderProps)
     }
   };
 
+  const handleDownload = async () => {
+    if (!currentDocument) {
+      toast({
+        title: "No document",
+        description: "Please select a document to download.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      await DocumentService.exportToPDF(currentDocument);
+      toast({
+        title: "Downloaded",
+        description: "Document downloaded successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Download failed",
+        description: "Could not download the document.",
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
+    <>
     <header className="border-b border-border/50 bg-card/80 backdrop-blur-sm sticky top-0 z-50">
       <div className="container mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
@@ -109,21 +138,7 @@ export function Header({ user, currentDocument, onCreateDocument }: HeaderProps)
               variant="ghost" 
               size="sm" 
               className="hover-lift"
-              onClick={() => {
-                if (currentDocument?.share_code) {
-                  navigator.clipboard.writeText(`${window.location.origin}/share/${currentDocument.share_code}`);
-                  toast({
-                    title: "Link copied",
-                    description: "Share link copied to clipboard.",
-                  });
-                } else {
-                  toast({
-                    title: "No document",
-                    description: "Please select a document to share.",
-                    variant: "destructive"
-                  });
-                }
-              }}
+              onClick={() => setShareDialogOpen(true)}
               disabled={!currentDocument}
             >
               <Share2 className="w-4 h-4" />
@@ -138,28 +153,7 @@ export function Header({ user, currentDocument, onCreateDocument }: HeaderProps)
               variant="ghost" 
               size="sm" 
               className="hover-lift"
-              onClick={() => {
-                if (currentDocument) {
-                  const content = currentDocument.content?.html || '';
-                  const blob = new Blob([content], { type: 'text/html' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `${currentDocument.title}.html`;
-                  a.click();
-                  URL.revokeObjectURL(url);
-                  toast({
-                    title: "Downloaded",
-                    description: "Document downloaded successfully.",
-                  });
-                } else {
-                  toast({
-                    title: "No document",
-                    description: "Please select a document to download.",
-                    variant: "destructive"
-                  });
-                }
-              }}
+              onClick={handleDownload}
               disabled={!currentDocument}
             >
               <Download className="w-4 h-4" />
@@ -179,5 +173,12 @@ export function Header({ user, currentDocument, onCreateDocument }: HeaderProps)
         </div>
       </div>
     </header>
+
+    <ShareDialog
+      open={shareDialogOpen}
+      onOpenChange={setShareDialogOpen}
+      document={currentDocument}
+    />
+    </>
   );
 }

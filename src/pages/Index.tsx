@@ -184,7 +184,7 @@ const Index = () => {
           
           {/* Stats Panel */}
           <div className="lg:col-span-1">
-            <StatsPanel documents={documents} />
+            <StatsPanel documents={documents} currentDocument={currentDocument} />
           </div>
         </div>
       </main>

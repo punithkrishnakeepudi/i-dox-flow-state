@@ -165,14 +165,19 @@ CREATE TRIGGER on_document_created
   FOR EACH ROW
   EXECUTE FUNCTION public.handle_new_document();
 
--- Create function to handle new user signup
+-- Add email column to profiles
+ALTER TABLE public.profiles ADD COLUMN email TEXT;
+
+-- Update handle_new_user function to store email
+DROP FUNCTION IF EXISTS public.handle_new_user();
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.profiles (user_id, username)
+  INSERT INTO public.profiles (user_id, username, email)
   VALUES (
     NEW.id, 
-    COALESCE(NEW.raw_user_meta_data ->> 'username', split_part(NEW.email, '@', 1))
+    COALESCE(NEW.raw_user_meta_data ->> 'username', split_part(NEW.email, '@', 1)),
+    NEW.email
   );
   RETURN NEW;
 END;
@@ -195,3 +200,6 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.documents;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.document_collaborators;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.document_activity;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.profiles;
+
+-- Add password_hash column for optional document password protection
+ALTER TABLE public.documents ADD COLUMN password_hash TEXT;

@@ -17,6 +17,9 @@ import {
 import { DocumentService } from "@/lib/documentService";
 import { useDocumentPresence } from "@/hooks/useDocumentPresence";
 import { useToast } from "@/hooks/use-toast";
+import { ShareDialog } from "./ShareDialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 
 interface Document {
   id: string;
@@ -24,6 +27,7 @@ interface Document {
   content: any;
   created_at: string;
   updated_at: string;
+  password_hash?: string | null;
 }
 
 interface StatsPanelProps {
@@ -41,6 +45,10 @@ export function StatsPanel({ documents, currentDocument }: StatsPanelProps) {
   
   const { activeUsers, viewers } = useDocumentPresence(currentDocument?.id || '');
   const { toast } = useToast();
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [setPasswordDialogOpen, setSetPasswordDialogOpen] = useState(false);
+  const [password, setPassword] = useState("");
+  const [loadingPassword, setLoadingPassword] = useState(false);
 
   useEffect(() => {
     const updateStats = () => {
@@ -81,33 +89,6 @@ export function StatsPanel({ documents, currentDocument }: StatsPanelProps) {
 
     return () => clearInterval(interval);
   }, [documents, currentDocument]);
-
-  const statItems = [
-    {
-      icon: Type,
-      label: "Words",
-      value: stats.wordCount.toLocaleString(),
-      color: "bg-gradient-primary"
-    },
-    {
-      icon: Hash,
-      label: "Characters",
-      value: stats.charCount.toLocaleString(),
-      color: "bg-accent"
-    },
-    {
-      icon: Clock,
-      label: "Reading Time",
-      value: `${stats.readingTime} min`,
-      color: "bg-success"
-    },
-    {
-      icon: FileText,
-      label: "Paragraphs",
-      value: stats.paragraphs.toString(),
-      color: "bg-warning"
-    }
-  ];
 
   const handleExportPDF = async () => {
     if (!currentDocument) {
@@ -160,6 +141,55 @@ export function StatsPanel({ documents, currentDocument }: StatsPanelProps) {
     }
   };
 
+  const handleSetPassword = async () => {
+    if (!currentDocument) return;
+    setLoadingPassword(true);
+    try {
+      await DocumentService.setDocumentPassword(currentDocument.id, password);
+      toast({
+        title: password ? "Password set" : "Password removed",
+        description: password ? "Document is now protected." : "Password protection removed.",
+      });
+      setSetPasswordDialogOpen(false);
+      setPassword("");
+    } catch (error: any) {
+      toast({
+        title: "Failed to set password",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingPassword(false);
+    }
+  };
+
+  const statItems = [
+    {
+      icon: Type,
+      label: "Words",
+      value: stats.wordCount.toLocaleString(),
+      color: "bg-gradient-primary"
+    },
+    {
+      icon: Hash,
+      label: "Characters",
+      value: stats.charCount.toLocaleString(),
+      color: "bg-accent"
+    },
+    {
+      icon: Clock,
+      label: "Reading Time",
+      value: `${stats.readingTime} min`,
+      color: "bg-success"
+    },
+    {
+      icon: FileText,
+      label: "Paragraphs",
+      value: stats.paragraphs.toString(),
+      color: "bg-warning"
+    }
+  ];
+
   return (
     <div className="space-y-4">
       {/* Stats Cards */}
@@ -209,45 +239,81 @@ export function StatsPanel({ documents, currentDocument }: StatsPanelProps) {
       </Card>
 
       {/* Quick Actions */}
-      <Card className="p-4 bg-gradient-card border-border/50 hover-lift">
+      <Card className="p-4 bg-gradient-card border-border/50 hover-lift relative">
+        {currentDocument?.password_hash && (
+          <Badge className="absolute top-4 right-4 flex items-center gap-1 bg-warning text-warning-foreground"><Lock className="w-3 h-3" /> Protected</Badge>
+        )}
         <h3 className="text-lg font-semibold mb-4 gradient-text">Quick Actions</h3>
         <div className="space-y-2">
           <Button
             variant="ghost"
-            className="w-full justify-start p-3 h-auto rounded-xl bg-muted/30 hover:bg-muted/50"
+            className="w-full justify-start p-3 h-auto rounded-xl bg-muted/30 hover:bg-primary/10 focus:bg-primary/10 focus-visible:bg-primary/10 focus:ring-2 focus:ring-primary/40 transition-colors"
             onClick={handleExportPDF}
             disabled={!currentDocument}
+            title="Export the current document as a PDF"
           >
             <Download className="w-4 h-4 mr-3" />
             Export as PDF
           </Button>
           <Button
             variant="ghost"
-            className="w-full justify-start p-3 h-auto rounded-xl bg-muted/30 hover:bg-muted/50"
+            className="w-full justify-start p-3 h-auto rounded-xl bg-muted/30 hover:bg-primary/10 focus:bg-primary/10 focus-visible:bg-primary/10 focus:ring-2 focus:ring-primary/40 transition-colors"
             onClick={handleCopyShareLink}
             disabled={!currentDocument}
+            title="Copy a shareable link to this document"
           >
             <Share2 className="w-4 h-4 mr-3" />
             Copy Share Link
           </Button>
           <Button
             variant="ghost"
-            className="w-full justify-start p-3 h-auto rounded-xl bg-muted/30 hover:bg-muted/50"
+            className="w-full justify-start p-3 h-auto rounded-xl bg-muted/30 hover:bg-primary/10 focus:bg-primary/10 focus-visible:bg-primary/10 focus:ring-2 focus:ring-primary/40 transition-colors"
             disabled={!currentDocument}
+            onClick={() => setSetPasswordDialogOpen(true)}
+            title="Set or remove a password for this document"
           >
             <Lock className="w-4 h-4 mr-3" />
             Set Password
           </Button>
           <Button
             variant="ghost"
-            className="w-full justify-start p-3 h-auto rounded-xl bg-muted/30 hover:bg-muted/50"
+            className="w-full justify-start p-3 h-auto rounded-xl bg-muted/30 hover:bg-primary/10 focus:bg-primary/10 focus-visible:bg-primary/10 focus:ring-2 focus:ring-primary/40 transition-colors"
             disabled={!currentDocument}
+            onClick={() => setShareDialogOpen(true)}
+            title="Invite others to collaborate on this document"
           >
             <UserPlus className="w-4 h-4 mr-3" />
             Invite Collaborators
           </Button>
         </div>
       </Card>
+      <ShareDialog
+        open={shareDialogOpen}
+        onOpenChange={setShareDialogOpen}
+        document={currentDocument || null}
+      />
+      <Dialog open={setPasswordDialogOpen} onOpenChange={setSetPasswordDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Set Document Password</DialogTitle>
+          </DialogHeader>
+          <Input
+            type="password"
+            placeholder="Enter new password (leave blank to remove)"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            disabled={loadingPassword}
+          />
+          <DialogFooter>
+            <Button onClick={handleSetPassword} disabled={loadingPassword}>
+              {password ? "Set Password" : "Remove Password"}
+            </Button>
+            <Button variant="outline" onClick={() => setSetPasswordDialogOpen(false)} disabled={loadingPassword}>
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { FileText, Plus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { Sidebar } from "@/components/ui/sidebar";
 
 interface Document {
   id: string;
@@ -26,15 +27,25 @@ const Index = () => {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(true);
 
-  useEffect(() => {
-    if (!loading && !user) {
-      navigate("/auth");
-    }
-  }, [user, loading, navigate]);
+  // Remove forced login redirect
+  // useEffect(() => {
+  //   if (!loading && !user) {
+  //     navigate("/auth");
+  //   }
+  // }, [user, loading, navigate]);
 
   useEffect(() => {
     if (user) {
       loadDocuments();
+    } else {
+      // Load from localStorage for anonymous users
+      const localDocs = localStorage.getItem('anon-documents');
+      if (localDocs) {
+        const docs = JSON.parse(localDocs);
+        setDocuments(docs);
+        setCurrentDocument(docs[0] || null);
+      }
+      setLoadingDocs(false);
     }
   }, [user]);
 
@@ -83,8 +94,26 @@ const Index = () => {
     }
   };
 
+  const saveAnonDocs = (docs: Document[]) => {
+    localStorage.setItem('anon-documents', JSON.stringify(docs));
+  };
+
   const createNewDocument = async () => {
-    if (!user) return;
+    if (!user) {
+      const newDoc = {
+        id: Math.random().toString(36).substr(2, 9),
+        title: 'Untitled Document',
+        content: { html: '<p>Start writing your document here...</p>', lastModified: new Date().toISOString() },
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      const newDocs = [newDoc, ...documents];
+      setDocuments(newDocs);
+      setCurrentDocument(newDoc);
+      saveAnonDocs(newDocs);
+      toast({ title: "Document created", description: "New document created locally." });
+      return;
+    }
 
     console.log('Creating new document for user:', user.id);
     
@@ -130,6 +159,13 @@ const Index = () => {
     }
   };
 
+  // Add a useEffect to sync document updates to localStorage for anonymous users
+  useEffect(() => {
+    if (!user) {
+      saveAnonDocs(documents);
+    }
+  }, [documents, user]);
+
   // Show loading screen while checking auth
   if (loading || loadingDocs) {
     return (
@@ -147,10 +183,7 @@ const Index = () => {
     );
   }
 
-  // If no user after loading, don't render anything (redirect will happen)
-  if (!user) {
-    return null;
-  }
+  // Remove 'if (!user) return null;' to allow anonymous access
 
   return (
     <div className="min-h-screen bg-gradient-hero">
@@ -158,10 +191,30 @@ const Index = () => {
         user={user} 
         currentDocument={currentDocument}
         onCreateDocument={createNewDocument}
+        showLoginButton={!user}
       />
-      
       <main className="container mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          {/* Sidebar: Saved Files/Folders */}
+          <aside className="hidden lg:block lg:col-span-1">
+            <div className="bg-card rounded-2xl shadow-soft border border-border/50 p-4">
+              <h3 className="text-lg font-semibold mb-4 gradient-text">Your Files</h3>
+              <ul className="space-y-2">
+                {documents.map((doc) => (
+                  <li key={doc.id}>
+                    <Button
+                      variant={currentDocument?.id === doc.id ? "secondary" : "ghost"}
+                      className="w-full justify-start"
+                      onClick={() => setCurrentDocument(doc)}
+                    >
+                      <FileText className="w-4 h-4 mr-2" />
+                      {doc.title}
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </aside>
           {/* Main Editor */}
           <div className="lg:col-span-3">
             {currentDocument ? (
@@ -181,7 +234,6 @@ const Index = () => {
               </div>
             )}
           </div>
-          
           {/* Stats Panel */}
           <div className="lg:col-span-1">
             <StatsPanel documents={documents} currentDocument={currentDocument} />

@@ -1,5 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
+import bcrypt from "bcryptjs";
 
 export interface Document {
   id: string;
@@ -210,46 +213,48 @@ export class DocumentService {
   }
 
   static async exportToPDF(doc: Document): Promise<void> {
-    // Ensure we have required fields with defaults
-    const safeDoc = {
-      ...doc,
-      owner_id: doc.owner_id || '',
-      is_public: doc.is_public || false
-    };
-    
-    // Create a simple HTML document for PDF export
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>${safeDoc.title}</title>
-          <style>
-            body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
-            h1 { color: #333; border-bottom: 2px solid #333; padding-bottom: 10px; }
-            .content { margin-top: 20px; }
-          </style>
-        </head>
-        <body>
-          <h1>${safeDoc.title}</h1>
-          <div class="content">${safeDoc.content?.html || ''}</div>
-        </body>
-      </html>
+    // Create a temporary container for rendering
+    const container = document.createElement("div");
+    container.style.position = "fixed";
+    container.style.left = "-9999px";
+    container.style.top = "-9999px";
+    container.style.width = "800px";
+    container.innerHTML = `
+      <div style='font-family: Arial, sans-serif; margin: 40px; line-height: 1.6;'>
+        <h1 style='color: #333; border-bottom: 2px solid #333; padding-bottom: 10px;'>${doc.title}</h1>
+        <div class='content'>${doc.content?.html || ''}</div>
+      </div>
     `;
+    document.body.appendChild(container);
 
-    // Use safe download utility to avoid DOM conflicts
-    await safeDownload.downloadHTML(htmlContent, `${safeDoc.title}.html`);
+    // Use html2canvas to render the container to a canvas
+    const canvas = await html2canvas(container, { scale: 2 });
+    const imgData = canvas.toDataURL("image/png");
+    const pdf = new jsPDF({ unit: "px", format: "a4" });
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    // Use canvas dimensions for image size
+    const imgWidth = canvas.width;
+    const imgHeight = canvas.height;
+    // Scale image to fit PDF width
+    const pdfWidth = pageWidth;
+    const pdfHeight = (imgHeight * pdfWidth) / imgWidth;
+    pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+    pdf.save(`${doc.title}.pdf`);
+    document.body.removeChild(container);
   }
 
   static async addCollaborator(documentId: string, userEmail: string, permission: 'view' | 'edit' | 'admin' = 'view'): Promise<void> {
-    // First, find the user by email
+    // Find the user by email in the profiles table
     const { data: userData, error: userError } = await supabase
       .from('profiles')
       .select('user_id')
-      .eq('username', userEmail.split('@')[0])
+      .eq('email', userEmail)
       .single();
 
-    if (userError) throw new Error(`User not found: ${userEmail}`);
+    if (userError || !userData) throw new Error(`User not found: ${userEmail}`);
 
+    // Insert into document_collaborators
     const { error } = await supabase
       .from('document_collaborators')
       .insert({
@@ -286,5 +291,29 @@ export class DocumentService {
         action,
         metadata: metadata || {}
       });
+  }
+
+  static async setDocumentPassword(documentId: string, password: string): Promise<void> {
+    let password_hash = null;
+    if (password) {
+      const salt = bcrypt.genSaltSync(10);
+      password_hash = bcrypt.hashSync(password, salt);
+    }
+    const { error } = await supabase
+      .from('documents')
+      .update({ password_hash })
+      .eq('id', documentId);
+    if (error) throw new Error(`Failed to set password: ${error.message}`);
+  }
+
+  static async checkDocumentPassword(documentId: string, password: string): Promise<boolean> {
+    const { data, error } = await supabase
+      .from('documents')
+      .select('password_hash')
+      .eq('id', documentId)
+      .single();
+    if (error) throw new Error(`Failed to check password: ${error.message}`);
+    if (!data.password_hash) return true; // No password set
+    return bcrypt.compareSync(password, data.password_hash);
   }
 }

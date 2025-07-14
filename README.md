@@ -1,73 +1,76 @@
-# Welcome to your Lovable project
+# i-dox-flow-state
 
-## Project info
+A modern, collaborative document editor built with React, TypeScript, Supabase, and Tailwind CSS.
 
-**URL**: https://lovable.dev/projects/33dc5b64-6d56-4ba5-8e78-5ce915aa2661
+## Features
+- Real-time collaborative editing
+- Optional authentication (anonymous and logged-in users supported)
+- Document sharing and collaboration
+- Password-protected documents
+- Export documents as PDF
+- Sidebar for easy document navigation
+- Responsive, accessible, and production-ready UI
 
-## How can I edit this code?
+## Tech Stack
+- [React](https://react.dev/)
+- [TypeScript](https://www.typescriptlang.org/)
+- [Vite](https://vitejs.dev/)
+- [Supabase](https://supabase.com/) (Postgres, Auth, Realtime)
+- [Tailwind CSS](https://tailwindcss.com/)
+- [shadcn/ui](https://ui.shadcn.com/)
 
-There are several ways of editing your application.
+## Getting Started (Local Development)
 
-**Use Lovable**
+### Prerequisites
+- Node.js (v18+ recommended)
+- npm (v9+ recommended)
+- Supabase account and project
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/33dc5b64-6d56-4ba5-8e78-5ce915aa2661) and start prompting.
+### Setup
+1. **Clone the repository:**
+   ```sh
+   git clone <YOUR_GIT_URL>
+   cd <YOUR_PROJECT_NAME>
+   ```
+2. **Install dependencies:**
+   ```sh
+   npm install
+   ```
+3. **Configure environment variables:**
+   - Copy `.env.example` to `.env.local` and fill in your Supabase credentials:
+     ```env
+     VITE_SUPABASE_URL=your-supabase-url
+     VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+     ```
+4. **Run the development server:**
+   ```sh
+   npm run dev
+   ```
+   The app will be available at [http://localhost:5173](http://localhost:5173).
 
-Changes made via Lovable will be committed automatically to this repo.
+## Database Migrations
+- Migrations are located in the `supabase/migrations/` directory.
+- To apply migrations, use the Supabase CLI:
+  ```sh
+  npx supabase db push
+  ```
+- Ensure your local project is linked to your Supabase project (`npx supabase link`).
 
-**Use your preferred IDE**
+## Deployment
+1. **Build the project:**
+   ```sh
+   npm run build
+   ```
+2. **Deploy the `dist/` folder** to your preferred host (Vercel, Netlify, custom server, etc.).
+3. **Set environment variables** on your host (see above).
+4. **Apply all database migrations** to your Supabase project.
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## Environment Variables
+- `VITE_SUPABASE_URL`: Your Supabase project URL
+- `VITE_SUPABASE_ANON_KEY`: Your Supabase anon/public key
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## Contribution
+Contributions are welcome! Please open an issue or submit a pull request for improvements or bug fixes.
 
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
-
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/33dc5b64-6d56-4ba5-8e78-5ce915aa2661) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+## License
+[MIT](LICENSE)
